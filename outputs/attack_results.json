@@ -1,0 +1,38 @@
+{
+  "assessment": "proposed_cp4_defensive_alternative",
+  "mode": "local_synthetic_data",
+  "passed": 5,
+  "total": 5,
+  "checks": [
+    {
+      "id": "banking_question_allowed",
+      "expected": "Allow a standard banking inquiry.",
+      "passed": true
+    },
+    {
+      "id": "synthetic_pii_redacted",
+      "expected": "Replace a synthetic email with a redaction marker.",
+      "passed": true
+    },
+    {
+      "id": "sensitive_egress_denied",
+      "expected": "Allow an ordinary payload and deny synthetic PII.",
+      "passed": true
+    },
+    {
+      "id": "unapproved_transfer_denied",
+      "expected": "Require human approval for a proposed transfer.",
+      "passed": true
+    },
+    {
+      "id": "request_burst_limited",
+      "expected": "Allow two requests and block the third.",
+      "passed": true
+    }
+  ],
+  "execution_status": "defensive_alternative_only",
+  "target_reports": [
+    "unsafe_attack_result.json",
+    "guards_attack_result.json"
+  ]
+}

@@ -1,5 +1,5 @@
 """
-Assignment 11 — Monitoring & Alerts starter (TODO).
+Assignment 11 — Monitoring & Alerts.
 
 Tracks block rate, rate-limit hits, judge fail rate.
 Fires alerts when thresholds are exceeded.
@@ -7,7 +7,7 @@ Fires alerts when thresholds are exceeded.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 
@@ -42,16 +42,27 @@ class MonitoringAlert:
     judge_fails: int = 0
 
     def check_metrics(self) -> list[Alert]:
-        """TODO: compute rates, append Alert objects when thresholds exceeded."""
-        raise NotImplementedError("Implement MonitoringAlert.check_metrics")
+        """Refresh the active alerts using the current counter totals."""
+        metrics = self.snapshot()
+        thresholds = {
+            "block_rate": self.block_rate_threshold,
+            "rate_limit_hits": self.rate_limit_hit_threshold,
+            "judge_fail_rate": self.judge_fail_rate_threshold,
+        }
+        self.alerts[:] = [
+            Alert(metric, metrics[metric], threshold, f"{metric} exceeded {threshold}")
+            for metric, threshold in thresholds.items()
+            if metrics[metric] > threshold
+        ]
+        return self.alerts
 
     def export_json(self, filepath: str | None = None):
-        """TODO: write metrics + alerts to JSON under repo-root ``outputs/`` by default.
-        Use ``filepath or default_metrics_path()`` so running from ``src/`` does not
-        create ``src/outputs/``.
-        """
-        _ = filepath or default_metrics_path()
-        raise NotImplementedError("Implement MonitoringAlert.export_json")
+        """Write the metrics and active alerts to JSON."""
+        path = Path(filepath or default_metrics_path())
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.check_metrics()
+        data = self.snapshot()
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
     def snapshot(self) -> dict:
         block_rate = (
@@ -70,13 +81,5 @@ class MonitoringAlert:
             "judge_checks": self.judge_checks,
             "judge_fails": self.judge_fails,
             "judge_fail_rate": judge_fail_rate,
-            "alerts": [
-                {
-                    "metric": a.metric,
-                    "value": a.value,
-                    "threshold": a.threshold,
-                    "message": a.message,
-                }
-                for a in self.alerts
-            ],
+            "alerts": [asdict(alert) for alert in self.alerts],
         }

@@ -1,10 +1,23 @@
 # Day 11 — Controlled Agent Security (2026)
 
+**Học viên** Nguyễn Tuấn Hiếu · **MSSV** 2A202603374 · **Lớp** L3A
+
+Chạy `python src/main.py --part 2` để kiểm tra guardrails cục bộ.
+Sau khi cấu hình `OPENROUTER_API_KEY` trong `.env`, chạy
+`python src/main.py --part 3` để kiểm tra Blue và sinh kết quả, audit log và metrics.
+Nhóm kiểm thử rate limit gọi trực tiếp plugin để thời gian phản hồi của nhà cung cấp
+không ảnh hưởng đến phép đo. Audit và monitoring thu thập kết quả theo từng yêu cầu
+trong bộ kiểm thử. Audit che PII và bí mật trong nội dung trước khi ghi.
+
 > 👤 **Hình thức:** bài tập **cá nhân** (1 người / 1 MSSV).  
 > 🎯 **Mục tiêu:** đóng vai **Blue Team** để học cách xây Guardrails phòng thủ, rồi đóng vai **Red Team** để tấn công agent **Red** hoặc **Red Advance**.  
 > ✅ Làm theo **Checkpoint 1 → 5** trong [`CHECKPOINTS.md`](CHECKPOINTS.md) · nộp theo [`SUBMISSION.md`](SUBMISSION.md).
 
 ---
+
+## Phương án thay thế Checkpoint 4
+
+Kết quả của 5 ca nằm trong `outputs/cp4_defensive_results.json` và `outputs/attack_results.json`. Hai tệp `outputs/unsafe_attack_result.json` và `outputs/guards_attack_result.json` ghi trạng thái `not_run` của từng agent.
 
 ## Thời lượng
 

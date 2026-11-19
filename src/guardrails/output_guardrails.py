@@ -13,6 +13,20 @@ from google.adk import runners
 from google.adk.plugins import base_plugin
 
 from core.utils import chat_with_agent
+from core.config import DEMO_SECRETS
+from agents.security_boundary import contains_secret, normalize_for_security
+
+PII_PATTERNS = {
+    "email": r"[\w.+-]+@[\w.-]+\.[a-z]{2,}",
+    "phone": r"(?<!\d)(?:0\d{9,10}|\+84[ .-]?(?:\d[ .-]?){8}\d)(?!\d)",
+    "national_id": r"\b(?:\d{12}|\d{9})\b",
+    "api_key": r"\bsk-[\w-]+",
+    "password": r"(?:\bpassword|mật\s+khẩu)\s*(?::|=|\bis\b|\blà\b)\s*[^\s,;]+",
+    "database_host": r"\b(?:db[.-][\w.-]+|[\w.-]+\.internal)(?::\d+)?",
+    "demo_secret": "|".join(
+        re.escape(secret) for secret in sorted(DEMO_SECRETS, key=len, reverse=True)
+    ),
+}
 
 
 # ============================================================
@@ -37,28 +51,21 @@ def content_filter(response: str) -> dict:
         dict with 'safe', 'issues', and 'redacted' keys
     """
     issues = []
-    redacted = response
-
-    # PII patterns to check
-    PII_PATTERNS = {
-        # TODO: Add regex patterns for:
-        # - VN phone number: r"0\d{9,10}"
-        # - Email: r"[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}"
-        # - National ID (CMND/CCCD): r"\b\d{9}\b|\b\d{12}\b"
-        # - API key pattern: r"sk-[a-zA-Z0-9-]+"
-        # - Password pattern: r"password\s*[:=]\s*\S+"
-    }
-
+    redacted = normalize_for_security(response)
     for name, pattern in PII_PATTERNS.items():
-        matches = re.findall(pattern, response, re.IGNORECASE)
-        if matches:
-            issues.append(f"{name}: {len(matches)} found")
-            redacted = re.sub(pattern, "[REDACTED]", redacted, flags=re.IGNORECASE)
+        if not pattern:
+            continue
+        redacted, count = re.subn(pattern, "[REDACTED]", redacted, flags=re.IGNORECASE)
+        if count:
+            issues.append(f"{name}: {count} found")
+    if contains_secret(redacted):
+        issues.append("protected_data: 1 found")
+        redacted = "[REDACTED]"
 
     return {
         "safe": len(issues) == 0,
         "issues": issues,
-        "redacted": redacted,
+        "redacted": redacted if issues else response,
     }
 
 
@@ -149,12 +156,13 @@ class OutputGuardrailPlugin(base_plugin.BasePlugin):
         self.blocked_count = 0
         self.redacted_count = 0
         self.total_count = 0
+        self.judge_checks = 0
 
     def _extract_text(self, llm_response) -> str:
         """Extract text from LLM response."""
         text = ""
         if hasattr(llm_response, "content") and llm_response.content:
-            for part in llm_response.content.parts:
+            for part in llm_response.content.parts or []:
                 if hasattr(part, "text") and part.text:
                     text += part.text
         return text
@@ -172,16 +180,21 @@ class OutputGuardrailPlugin(base_plugin.BasePlugin):
         if not response_text:
             return llm_response
 
-        # TODO: Implement logic:
-        # 1. Call content_filter(response_text)
-        #    - If issues found: replace llm_response.content with redacted version
-        #    - Increment self.redacted_count
-        # 2. If use_llm_judge: call llm_safety_check(response_text)
-        #    - If unsafe: replace llm_response.content with a safe message
-        #    - Increment self.blocked_count
-        # 3. Return llm_response (possibly modified)
-
-        return llm_response  # TODO: modify if needed
+        filtered = content_filter(response_text)
+        text = filtered["redacted"]
+        if not filtered["safe"]:
+            self.redacted_count += 1
+        if self.use_llm_judge:
+            self.judge_checks += 1
+            verdict = await llm_safety_check(text)
+            if not verdict["safe"]:
+                self.blocked_count += 1
+                text = "Phản hồi chưa đạt yêu cầu an toàn."
+        if text != response_text:
+            llm_response.content = types.Content(
+                role="model", parts=[types.Part.from_text(text=text)]
+            )
+        return llm_response
 
 
 # ============================================================

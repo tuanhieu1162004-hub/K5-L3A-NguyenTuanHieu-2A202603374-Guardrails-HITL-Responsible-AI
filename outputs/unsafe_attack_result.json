@@ -1,0 +1,6 @@
+{
+  "assessment": "proposed_cp4_defensive_alternative",
+  "target": "red_default",
+  "execution_status": "not_run",
+  "defensive_report": "cp4_defensive_results.json"
+}
